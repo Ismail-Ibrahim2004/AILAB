@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice AI Relay Tester</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0a0a0f;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: linear-gradient(135deg, #13131f 0%, #1a1a2e 100%);
+      border: 1px solid rgba(139,92,246,0.25);
+      border-radius: 24px;
+      padding: 40px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.1);
+    }
+
+    .header { text-align: center; margin-bottom: 36px; }
+    .header h1 { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #a78bfa, #60a5fa); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p  { color: #64748b; font-size: 0.85rem; margin-top: 6px; }
+
+    /* Relay grid */
+    .relay-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .relay-dot {
+      aspect-ratio: 1;
+      border-radius: 12px;
+      background: #1e1e2e;
+      border: 2px solid #2d2d44;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      color: #475569;
+      gap: 4px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .relay-dot .num { font-size: 1.1rem; font-weight: 700; }
+    .relay-dot.on {
+      background: rgba(139,92,246,0.15);
+      border-color: #a78bfa;
+      color: #a78bfa;
+      box-shadow: 0 0 20px rgba(139,92,246,0.3), inset 0 0 20px rgba(139,92,246,0.05);
+    }
+    .relay-dot:hover {
+      border-color: #7c3aed;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(124,58,237,0.2);
+    }
+    .relay-dot.on::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.2) 0%, transparent 70%);
+    }
+
+    /* Controls */
+    .controls { display: flex; flex-direction: column; gap: 14px; }
+
+    .lang-row {
+      display: flex;
+      gap: 10px;
+    }
+    .lang-btn {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid #2d2d44;
+      border-radius: 10px;
+      background: transparent;
+      color: #64748b;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .lang-btn.active {
+      border-color: #7c3aed;
+      background: rgba(124,58,237,0.15);
+      color: #a78bfa;
+    }
+
+    #recordBtn {
+      width: 100%;
+      padding: 18px;
+      border-radius: 16px;
+      border: none;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-family: inherit;
+      letter-spacing: 0.02em;
+    }
+    #recordBtn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(124,58,237,0.4); }
+    #recordBtn:active { transform: translateY(0); }
+    #recordBtn.recording {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      animation: pulse-red 1.2s ease-in-out infinite;
+    }
+    #recordBtn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    @keyframes pulse-red {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.5); }
+      50%       { box-shadow: 0 0 0 14px rgba(220,38,38,0); }
+    }
+
+    .visualizer-wrap {
+      height: 48px;
+      background: #0f0f1a;
+      border-radius: 10px;
+      overflow: hidden;
+      display: none;
+    }
+    .visualizer-wrap.active { display: block; }
+    #visualizer { width: 100%; height: 100%; }
+
+    /* Status / response */
+    #status {
+      font-size: 0.82rem;
+      color: #64748b;
+      text-align: center;
+      min-height: 20px;
+      transition: color 0.2s;
+    }
+    #status.sending  { color: #60a5fa; }
+    #status.success  { color: #34d399; }
+    #status.error    { color: #f87171; }
+
+    .result-box {
+      background: #0f0f1a;
+      border: 1px solid #2d2d44;
+      border-radius: 12px;
+      padding: 16px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .result-box.visible { display: flex; }
+    .result-row { display: flex; justify-content: space-between; align-items: center; }
+    .result-label { font-size: 0.75rem; color: #64748b; }
+    .result-value { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; text-align: right; max-width: 65%; word-break: break-word; }
+    .result-value.green  { color: #34d399; }
+    .result-value.purple { color: #a78bfa; }
+    .result-value.yellow { color: #fbbf24; }
+
+    .transcript-box {
+      background: rgba(96,165,250,0.08);
+      border: 1px solid rgba(96,165,250,0.2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      font-style: italic;
+      color: #93c5fd;
+      display: none;
+    }
+    .transcript-box.visible { display: block; }
+
+    /* Audio playback */
+    #audioPlayback { width: 100%; border-radius: 8px; display: none; }
+    #audioPlayback.visible { display: block; }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #2d2d44, transparent);
+      margin: 4px 0;
+    }
+
+    /* Instructions */
+    .tip {
+      background: rgba(96,165,250,0.06);
+      border: 1px solid rgba(96,165,250,0.15);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.78rem;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    .tip strong { color: #93c5fd; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>🎙️ Voice Relay Controller</h1>
+    <p>Speak a command · Whisper transcribes · Gemini executes</p>
+  </div>
+
+  <!-- Relay state display -->
+  <div class="relay-grid" id="relayGrid">
+    <!-- filled by JS -->
+  </div>
+
+  <div class="controls">
+    <!-- Language selector -->
+    <div class="lang-row">
+      <button class="lang-btn active" id="btnEn" onclick="setLang('en')">🇺🇸 English</button>
+      <button class="lang-btn"        id="btnAr" onclick="setLang('ar')">🇪🇬 العربية (AR)</button>
+    </div>
+
+    <!-- Visualizer -->
+    <div class="visualizer-wrap" id="vizWrap">
+      <canvas id="visualizer"></canvas>
+    </div>
+
+    <!-- Record button -->
+    <button id="recordBtn" onclick="toggleRecord()">
+      <span id="btnIcon">🎙️</span>
+      <span id="btnLabel">Hold to Record</span>
+    </button>
+
+    <!-- Audio playback -->
+    <audio id="audioPlayback" controls></audio>
+
+    <!-- Transcript -->
+    <div class="transcript-box" id="transcriptBox"></div>
+
+    <!-- Status -->
+    <div id="status">Ready — press the button and speak your command</div>
+
+    <!-- Result -->
+    <div class="result-box" id="resultBox">
+      <div class="result-row">
+        <span class="result-label">Intent</span>
+        <span class="result-value purple" id="resIntent">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Relay</span>
+        <span class="result-value" id="resRelay">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Status</span>
+        <span class="result-value green" id="resMsg">—</span>
+      </div>
+      <div class="divider"></div>
+      <div class="result-row">
+        <span class="result-label">Confidence</span>
+        <span class="result-value yellow" id="resConf">—</span>
+      </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="tip">
+      <strong>EN examples:</strong> "Turn on relay 3" · "Turn off all relays" · "Toggle relay 1"<br>
+      <strong>AR examples:</strong> "ولع الخانة الأولى" · "اطفي كل الخانات" · "بدّل الخانة الثانية"
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:8000';
+  let lang = 'en';
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let isRecording = false;
+  let animFrame = null;
+  let analyser = null;
+  let audioCtx = null;
+
+  // ── Relay grid ──────────────────────────────────────────
+  function buildGrid(states) {
+    const grid = document.getElementById('relayGrid');
+    grid.innerHTML = '';
+    states.forEach((on, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'relay-dot' + (on ? ' on' : '');
+      dot.style.cursor = 'pointer';
+      dot.onclick = () => toggleRelayManual(i);
+      dot.title = `Click to toggle Relay ${i+1}`;
+      dot.innerHTML = `<span class="num">${i+1}</span><span>${on ? 'ON' : 'OFF'}</span>`;
+      grid.appendChild(dot);
+    });
+  }
+
+  async function toggleRelayManual(index) {
+    setStatus(`Toggling Manual Relay ${index+1}...`, 'sending');
+    try {
+      const form = new FormData();
+      form.append('type', 'manual');
+      form.append('index', index);
+      form.append('action', 'toggle');
+      form.append('language', lang);
+
+      const res = await fetch(`${API}/command`, { method: 'POST', body: form });
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setStatus('✅ ' + data.message, 'success');
+        if (data.relays_snapshot) buildGrid(data.relays_snapshot);
+      } else {
+        setStatus('❌ ' + (data.message || 'Error occurred'), 'error');
+      }
+    } catch (err) {
+      setStatus('❌ Network error: ' + err.message, 'error');
+    }
+  }
+
+  async function refreshStatus() {
+    try {
+      const r = await fetch(`${API}/status`);
+      const d = await r.json();
+      buildGrid(d.relays);
+    } catch {}
+  }
+
+  // ── Language ─────────────────────────────────────────────
+  function setLang(l) {
+    lang = l;
+    document.getElementById('btnEn').classList.toggle('active', l === 'en');
+    document.getElementById('btnAr').classList.toggle('active', l === 'ar');
+  }
+
+  // ── Visualizer ───────────────────────────────────────────
+  function startVisualizer(stream) {
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    const src = audioCtx.createMediaStreamSource(stream);
+    src.connect(analyser);
+
+    const canvas = document.getElementById('visualizer');
+    const ctx    = canvas.getContext('2d');
+    const buf    = new Uint8Array(analyser.frequencyBinCount);
+
+    function draw() {
+      animFrame = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(buf);
+      canvas.width  = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const bw = canvas.width / buf.length;
+      buf.forEach((v, i) => {
+        const h = (v / 255) * canvas.height;
+        const grad = ctx.createLinearGradient(0, canvas.height - h, 0, canvas.height);
+        grad.addColorStop(0, '#a78bfa');
+        grad.addColorStop(1, '#6d28d9');
+        ctx.fillStyle = grad;
+        ctx.fillRect(i * bw + 1, canvas.height - h, bw - 2, h);
+      });
+    }
+    draw();
+  }
+
+  function stopVisualizer() {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  }
+
+  // ── Recording ────────────────────────────────────────────
+  async function toggleRecord() {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      await startRecording();
+    }
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      isRecording = true;
+      audioChunks = [];
+
+      // UI
+      document.getElementById('recordBtn').classList.add('recording');
+      document.getElementById('btnIcon').textContent  = '⏹️';
+      document.getElementById('btnLabel').textContent = 'Recording… click to stop';
+      document.getElementById('vizWrap').classList.add('active');
+      document.getElementById('resultBox').classList.remove('visible');
+      document.getElementById('transcriptBox').classList.remove('visible');
+      document.getElementById('audioPlayback').classList.remove('visible');
+      setStatus('🔴 Recording…', '');
+
+      startVisualizer(stream);
+
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        stopVisualizer();
+        await sendToAPI();
+      };
+      mediaRecorder.start();
+    } catch (err) {
+      setStatus('Microphone access denied: ' + err.message, 'error');
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && isRecording) {
+      isRecording = false;
+      mediaRecorder.stop();
+      document.getElementById('recordBtn').classList.remove('recording');
+      document.getElementById('btnIcon').textContent  = '🎙️';
+      document.getElementById('btnLabel').textContent = 'Hold to Record';
+      document.getElementById('vizWrap').classList.remove('active');
+      setStatus('Processing…', 'sending');
+    }
+  }
+
+  // ── Send to API ──────────────────────────────────────────
+  async function sendToAPI() {
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+
+    // Playback preview
+    const url = URL.createObjectURL(blob);
+    const audio = document.getElementById('audioPlayback');
+    audio.src = url;
+    audio.className = 'visible';
+
+    document.getElementById('recordBtn').disabled = true;
+    setStatus('⏳ Sending to Whisper + Gemini…', 'sending');
+
+    try {
+      const form = new FormData();
+      form.append('type', 'voice');
+      form.append('language', lang);
+      form.append('audio', blob, 'recording.webm');
+
+      const res  = await fetch(`${API}/command`, { method: 'POST', body: form });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // Transcript
+        if (data.transcript) {
+          const tb = document.getElementById('transcriptBox');
+          tb.textContent = `"${data.transcript}"`;
+          tb.classList.add('visible');
+        }
+
+        // Result panel
+        document.getElementById('resIntent').textContent = data.intent || '—';
+        document.getElementById('resRelay').textContent  =
+          (data.relay_indices && data.relay_indices.length > 0) ? `Relays ⦗${data.relay_indices.map(i => i + 1).join(', ')}⦘` : 'All / None';
+        document.getElementById('resMsg').textContent    = data.message || '—';
+        document.getElementById('resConf').textContent   = '—';
+        document.getElementById('resultBox').classList.add('visible');
+
+        setStatus('✅ ' + data.message, 'success');
+        await refreshStatus();
+      } else {
+        const msg = data.message || JSON.stringify(data);
+        setStatus('❌ ' + msg, 'error');
+      }
+    } catch (err) {
+      setStatus('❌ Network error: ' + err.message, 'error');
+    } finally {
+      document.getElementById('recordBtn').disabled = false;
+    }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────
+  function setStatus(msg, cls) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = cls || '';
+  }
+
+  // Init
+  buildGrid([false,false,false,false,false,false,false,false]);
+  refreshStatus();
+  setInterval(refreshStatus, 4000);
+</script>
+</body>
+</html>

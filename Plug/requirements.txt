@@ -1,0 +1,29 @@
+# ============================================================
+# Voice AI Smart Relay Controller — Python dependencies
+# ============================================================
+
+# Core web framework
+fastapi==0.111.1
+uvicorn[standard]==0.30.1
+
+# Multipart file uploads
+python-multipart==0.0.9
+
+# Settings management
+pydantic-settings==2.3.4
+pydantic==2.7.4
+
+# Async HTTP client (HuggingFace Whisper API)
+httpx==0.27.0
+
+# Groq SDK — fast free LLM inference (replaces Gemini)
+groq>=0.9.0
+
+# Environment variable loading
+python-dotenv==1.0.1
+
+# Rate limiting
+slowapi==0.1.9
+
+# GPIO (Raspberry Pi only — install manually on RPi)
+gpiozero>=2.0.1
